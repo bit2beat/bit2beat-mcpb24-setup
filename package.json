@@ -4,7 +4,7 @@
   "description": "CLI para conectar Bitrix24 con Claude usando el MCP hosteado de bit2beat",
   "type": "module",
   "bin": {
-    "bit2beat-mcpb24-setup": "./dist/index.js"
+    "bit2beat-mcpb24-setup": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -16,8 +16,16 @@
   "engines": {
     "node": ">=18"
   },
-  "files": ["dist"],
-  "keywords": ["bitrix24", "mcp", "claude", "ai", "setup"],
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "bitrix24",
+    "mcp",
+    "claude",
+    "ai",
+    "setup"
+  ],
   "author": "bit2beat",
   "license": "MIT",
   "dependencies": {
