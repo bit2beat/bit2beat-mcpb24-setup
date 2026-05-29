@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-const MCP_URL = 'https://b24mcp-app.bit2beat.com/lite/mcp'
+const MCP_URL = 'https://b24-mcp.bit2beat.com/lite/mcp'
 
 interface McpServer {
   type: string

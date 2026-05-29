@@ -1,5 +1,5 @@
 // src/verify.ts
-const VERIFY_URL = 'https://b24mcp-app.bit2beat.com/lite/verify'
+const VERIFY_URL = 'https://b24-mcp.bit2beat.com/lite/verify'
 
 export interface VerifyResult {
   valid: boolean
