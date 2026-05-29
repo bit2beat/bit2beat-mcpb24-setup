@@ -44,6 +44,10 @@ async function main(): Promise<void> {
     if (result.valid && result.portalDomain) {
       s.stop(green(`✔ Token válido — portal: ${result.portalDomain}`))
       portalDomain = result.portalDomain
+    } else if (result.networkError) {
+      s.stop(red('✗ No se pudo conectar al servidor. Verificá tu conexión a internet.'))
+      const retry = await confirm({ message: '¿Intentar de nuevo?' })
+      if (!retry || isCancel(retry)) { cancel('Setup cancelado.'); process.exit(0) }
     } else {
       s.stop(red('✗ Token inválido. Revisá que sea correcto.'))
       const retry = await confirm({ message: '¿Intentar con otro token?' })

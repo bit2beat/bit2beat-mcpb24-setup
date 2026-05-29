@@ -25,10 +25,10 @@ describe('verifyToken', () => {
         headers: { Authorization: 'Bearer b24lite_testtoken' },
       }),
     )
-    expect(result).toEqual({ valid: true, portalDomain: 'test.bitrix24.com' })
+    expect(result).toEqual({ valid: true, portalDomain: 'test.bitrix24.com', networkError: false })
   })
 
-  it('returns valid=false on non-ok response', async () => {
+  it('returns valid=false networkError=false on non-ok response', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: false,
       status: 401,
@@ -36,14 +36,14 @@ describe('verifyToken', () => {
 
     const result = await verifyToken('b24lite_badtoken')
 
-    expect(result).toEqual({ valid: false, portalDomain: null })
+    expect(result).toEqual({ valid: false, portalDomain: null, networkError: false })
   })
 
-  it('returns valid=false on network error', async () => {
+  it('returns valid=false networkError=true on network error', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('Network error'))
 
     const result = await verifyToken('b24lite_testtoken')
 
-    expect(result).toEqual({ valid: false, portalDomain: null })
+    expect(result).toEqual({ valid: false, portalDomain: null, networkError: true })
   })
 })
