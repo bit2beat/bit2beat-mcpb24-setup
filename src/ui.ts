@@ -1,5 +1,6 @@
 // src/ui.ts
-import { bold, bgBlue, white, dim } from 'picocolors'
+import pc from 'picocolors'
+const { bold, bgBlue, white, dim } = pc
 
 export function printHeader(): void {
   console.log()

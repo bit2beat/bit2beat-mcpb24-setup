@@ -4,7 +4,8 @@ import {
   intro, outro, select, text, spinner,
   confirm, note, isCancel, cancel,
 } from '@clack/prompts'
-import { green, red } from 'picocolors'
+import pc from 'picocolors'
+const { green, red } = pc
 import { verifyToken } from './verify.js'
 import { findDesktopConfig, writeDesktopConfig, getConfigJson } from './config-desktop.js'
 import { printHeader } from './ui.js'
