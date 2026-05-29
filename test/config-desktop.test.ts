@@ -57,7 +57,7 @@ describe('writeDesktopConfig', () => {
     const written = JSON.parse(writeMock.mock.calls[0][1] as string)
     expect(written.mcpServers.miportal).toEqual({
       type: 'http',
-      url: 'https://b24mcp-app.bit2beat.com/lite/mcp',
+      url: 'https://b24-mcp.bit2beat.com/lite/mcp',
       headers: { Authorization: 'Bearer b24lite_tok' },
     })
   })
@@ -76,7 +76,7 @@ describe('writeDesktopConfig', () => {
   })
 
   it('returns existed=true when name already exists and overwrite=false', () => {
-    const existing = { mcpServers: { miportal: { type: 'http', url: 'https://b24mcp-app.bit2beat.com/lite/mcp' } } }
+    const existing = { mcpServers: { miportal: { type: 'http', url: 'https://b24-mcp.bit2beat.com/lite/mcp' } } }
     vi.mocked(fs.existsSync).mockReturnValue(true)
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existing))
     vi.mocked(fs.writeFileSync).mockImplementation(() => {})
