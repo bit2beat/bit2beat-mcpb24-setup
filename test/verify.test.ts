@@ -20,7 +20,7 @@ describe('verifyToken', () => {
     const result = await verifyToken('b24lite_testtoken')
 
     expect(fetch).toHaveBeenCalledWith(
-      'https://b24mcp-app.bit2beat.com/lite/verify',
+      'https://b24-mcp.bit2beat.com/lite/verify',
       expect.objectContaining({
         headers: { Authorization: 'Bearer b24lite_testtoken' },
       }),
