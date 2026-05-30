@@ -44,23 +44,41 @@ export function findDesktopConfig(): string | null {
   return fs.existsSync(configPath) ? configPath : null
 }
 
-export function findClaudeCodeConfig(): string | null {
-  const platform = os.platform()
+export function getClaudeCodeConfigPath(): string {
   const home = os.homedir()
-
-  const configPath = platform === 'win32'
-    ? path.win32.join(home, '.claude', 'settings.json')
-    : path.posix.join(home, '.claude', 'settings.json')
-
-  return fs.existsSync(configPath) ? configPath : null
+  return os.platform() === 'win32'
+    ? path.win32.join(home, '.claude.json')
+    : path.posix.join(home, '.claude.json')
 }
 
-export function getClaudeCodeConfigPath(): string {
-  const platform = os.platform()
-  const home = os.homedir()
-  return platform === 'win32'
-    ? path.win32.join(home, '.claude', 'settings.json')
-    : path.posix.join(home, '.claude', 'settings.json')
+export function writeClaudeCodeConfig(name: string, token: string, overwrite: boolean): WriteResult {
+  const configPath = getClaudeCodeConfigPath()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let config: Record<string, any> = {}
+
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    } catch {
+      config = {}
+    }
+  }
+
+  if (!config.mcpServers) config.mcpServers = {}
+  const servers = config.mcpServers as Record<string, McpServer>
+
+  if (name in servers && !overwrite) {
+    return { existed: true }
+  }
+
+  servers[name] = {
+    type: 'http',
+    url: MCP_URL,
+    headers: { Authorization: `Bearer ${token}` },
+  }
+
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
+  return { existed: false }
 }
 
 export interface WriteResult {
