@@ -6,7 +6,7 @@ import * as path from 'node:path'
 const MCP_URL = 'https://b24-mcp.bit2beat.com/lite/mcp'
 
 interface McpServer {
-  type: string
+  type?: string
   url: string
   headers?: Record<string, string>
 }
@@ -107,8 +107,8 @@ export function writeDesktopConfig(
     return { existed: true }
   }
 
+  // Claude Desktop format: no "type" field, just url + headers
   config.mcpServers[name] = {
-    type: 'http',
     url: MCP_URL,
     headers: { Authorization: `Bearer ${token}` },
   }
@@ -119,10 +119,10 @@ export function writeDesktopConfig(
 }
 
 export function getConfigJson(name: string, token: string): string {
+  // Claude Desktop format
   const config: ClaudeConfig = {
     mcpServers: {
       [name]: {
-        type: 'http',
         url: MCP_URL,
         headers: { Authorization: `Bearer ${token}` },
       },

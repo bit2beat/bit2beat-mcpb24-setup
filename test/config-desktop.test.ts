@@ -56,7 +56,6 @@ describe('writeDesktopConfig', () => {
     expect(result.existed).toBe(false)
     const written = JSON.parse(writeMock.mock.calls[0][1] as string)
     expect(written.mcpServers.miportal).toEqual({
-      type: 'http',
       url: 'https://b24-mcp.bit2beat.com/lite/mcp',
       headers: { Authorization: 'Bearer b24lite_tok' },
     })

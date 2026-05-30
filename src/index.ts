@@ -119,7 +119,13 @@ async function main(): Promise<void> {
     )
   }
 
-  outro(green('¡Todo listo! Bitrix24 ya está conectado a Claude.'))
+  if (doWeb && !doDesktop && !doCode) {
+    outro(green('¡Listo! Seguí las instrucciones de arriba para completar la conexión en Claude.ai.'))
+  } else if (doDesktop && !doCode && !doWeb) {
+    outro(green('¡Listo! Reiniciá Claude Desktop para activar la conexión con Bitrix24.'))
+  } else {
+    outro(green('¡Todo listo! Bitrix24 ya está conectado a Claude.'))
+  }
 }
 
 main().catch((err: unknown) => {
