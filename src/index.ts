@@ -7,7 +7,7 @@ import {
 import pc from 'picocolors'
 const { green, red } = pc
 import { verifyToken } from './verify.js'
-import { findDesktopConfig, writeDesktopConfig, getConfigJson, findClaudeCodeConfig, getClaudeCodeConfigPath } from './config-desktop.js'
+import { findDesktopConfig, getDesktopConfigPath, writeDesktopConfig, getConfigJson, getClaudeCodeConfigPath } from './config-desktop.js'
 import { printHeader } from './ui.js'
 
 async function main(): Promise<void> {
@@ -74,58 +74,41 @@ async function main(): Promise<void> {
   const doWeb     = client === 'web'     || client === 'all'
 
   if (doDesktop) {
-    const configPath = findDesktopConfig()
+    const configPath = findDesktopConfig() ?? getDesktopConfigPath()
+    const result = writeDesktopConfig(configPath, name, token, false)
 
-    if (configPath) {
-      let result = writeDesktopConfig(configPath, name, token, false)
-
-      if (result.existed) {
-        const overwrite = await confirm({
-          message: `Ya existe una conexión con el nombre "${name}". ¿Sobreescribir?`,
-        })
-        if (isCancel(overwrite) || !overwrite) {
-          note('Conexión no modificada.', 'Claude Desktop')
-        } else {
-          writeDesktopConfig(configPath, name, token, true)
-          note(`✔ Conexión "${name}" actualizada\n→ Reiniciá Claude Desktop para activar los cambios`, 'Claude Desktop')
-        }
+    if (result.existed) {
+      const overwrite = await confirm({
+        message: `Ya existe una conexión "${name}" en Claude Desktop. ¿Sobreescribir?`,
+      })
+      if (isCancel(overwrite) || !overwrite) {
+        note('Conexión no modificada.', 'Claude Desktop')
       } else {
-        note(`✔ Conexión "${name}" guardada\n→ Reiniciá Claude Desktop para activarla`, 'Claude Desktop')
+        writeDesktopConfig(configPath, name, token, true)
+        note(`✔ Conexión "${name}" actualizada\n→ Reiniciá Claude Desktop para activar los cambios`, 'Claude Desktop')
       }
     } else {
-      note(
-        `No encontré claude_desktop_config.json.\n\nAgregá esto manualmente en el archivo de configuración de Claude Desktop:\n\n${getConfigJson(name, token)}`,
-        'Claude Desktop — Configuración manual',
-      )
+      note(`✔ Conexión "${name}" guardada\n→ Reiniciá Claude Desktop para activarla`, 'Claude Desktop')
     }
   }
 
   // ── Paso 5: Claude Code ──────────────────────────────────────────────
   if (doCode) {
-    const configPath = findClaudeCodeConfig()
+    const configPath = getClaudeCodeConfigPath()
+    const result = writeDesktopConfig(configPath, name, token, false)
 
-    if (configPath) {
-      const result = writeDesktopConfig(configPath, name, token, false)
-
-      if (result.existed) {
-        const overwrite = await confirm({
-          message: `Ya existe una conexión "${name}" en Claude Code. ¿Sobreescribir?`,
-        })
-        if (isCancel(overwrite) || !overwrite) {
-          note('Conexión no modificada.', 'Claude Code')
-        } else {
-          writeDesktopConfig(configPath, name, token, true)
-          note(`✔ Conexión "${name}" actualizada en Claude Code`, 'Claude Code')
-        }
+    if (result.existed) {
+      const overwrite = await confirm({
+        message: `Ya existe una conexión "${name}" en Claude Code. ¿Sobreescribir?`,
+      })
+      if (isCancel(overwrite) || !overwrite) {
+        note('Conexión no modificada.', 'Claude Code')
       } else {
-        note(`✔ Conexión "${name}" guardada en Claude Code`, 'Claude Code')
+        writeDesktopConfig(configPath, name, token, true)
+        note(`✔ Conexión "${name}" actualizada en Claude Code`, 'Claude Code')
       }
     } else {
-      const settingsPath = getClaudeCodeConfigPath()
-      note(
-        `No encontré settings.json de Claude Code.\n\nCreá el archivo en:\n  ${settingsPath}\n\nCon este contenido:\n\n${getConfigJson(name, token)}`,
-        'Claude Code — Configuración manual',
-      )
+      note(`✔ Conexión "${name}" guardada en Claude Code`, 'Claude Code')
     }
   }
 

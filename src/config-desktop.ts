@@ -15,6 +15,18 @@ interface ClaudeConfig {
   mcpServers?: Record<string, McpServer>
 }
 
+export function getDesktopConfigPath(): string {
+  const platform = os.platform()
+  const home = os.homedir()
+  if (platform === 'darwin') {
+    return path.posix.join(home, 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')
+  } else if (platform === 'win32') {
+    const appData = process.env.APPDATA ?? path.win32.join(home, 'AppData', 'Roaming')
+    return path.win32.join(appData, 'Claude', 'claude_desktop_config.json')
+  }
+  return path.posix.join(home, '.config', 'Claude', 'claude_desktop_config.json')
+}
+
 export function findDesktopConfig(): string | null {
   const platform = os.platform()
   const home = os.homedir()
@@ -83,6 +95,7 @@ export function writeDesktopConfig(
     headers: { Authorization: `Bearer ${token}` },
   }
 
+  fs.mkdirSync(path.dirname(configPath), { recursive: true })
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8')
   return { existed: false }
 }
