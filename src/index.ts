@@ -7,7 +7,7 @@ import {
 import pc from 'picocolors'
 const { green, red } = pc
 import { verifyToken } from './verify.js'
-import { findDesktopConfig, getDesktopConfigPath, writeDesktopConfig, writeClaudeCodeConfig, getConfigJson } from './config-desktop.js'
+import { writeDesktopConfig, writeClaudeCodeConfig } from './config-desktop.js'
 import { printHeader } from './ui.js'
 
 async function main(): Promise<void> {
@@ -74,8 +74,7 @@ async function main(): Promise<void> {
   const doWeb     = client === 'web'     || client === 'all'
 
   if (doDesktop) {
-    const configPath = findDesktopConfig() ?? getDesktopConfigPath()
-    const result = writeDesktopConfig(configPath, name, token, false)
+    const result = writeDesktopConfig(name, token, false)
 
     if (result.existed) {
       const overwrite = await confirm({
@@ -84,7 +83,7 @@ async function main(): Promise<void> {
       if (isCancel(overwrite) || !overwrite) {
         note('Conexión no modificada.', 'Claude Desktop')
       } else {
-        writeDesktopConfig(configPath, name, token, true)
+        writeDesktopConfig(name, token, true)
         note(`✔ Conexión "${name}" actualizada\n→ Reiniciá Claude Desktop para activar los cambios`, 'Claude Desktop')
       }
     } else {
