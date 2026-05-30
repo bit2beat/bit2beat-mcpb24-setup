@@ -26,11 +26,29 @@ export function findDesktopConfig(): string | null {
     const appData = process.env.APPDATA ?? path.win32.join(home, 'AppData', 'Roaming')
     configPath = path.win32.join(appData, 'Claude', 'claude_desktop_config.json')
   } else {
-    // Linux
     configPath = path.posix.join(home, '.config', 'Claude', 'claude_desktop_config.json')
   }
 
   return fs.existsSync(configPath) ? configPath : null
+}
+
+export function findClaudeCodeConfig(): string | null {
+  const platform = os.platform()
+  const home = os.homedir()
+
+  const configPath = platform === 'win32'
+    ? path.win32.join(home, '.claude', 'settings.json')
+    : path.posix.join(home, '.claude', 'settings.json')
+
+  return fs.existsSync(configPath) ? configPath : null
+}
+
+export function getClaudeCodeConfigPath(): string {
+  const platform = os.platform()
+  const home = os.homedir()
+  return platform === 'win32'
+    ? path.win32.join(home, '.claude', 'settings.json')
+    : path.posix.join(home, '.claude', 'settings.json')
 }
 
 export interface WriteResult {

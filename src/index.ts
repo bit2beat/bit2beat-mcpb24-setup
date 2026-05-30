@@ -7,7 +7,7 @@ import {
 import pc from 'picocolors'
 const { green, red } = pc
 import { verifyToken } from './verify.js'
-import { findDesktopConfig, writeDesktopConfig, getConfigJson } from './config-desktop.js'
+import { findDesktopConfig, writeDesktopConfig, getConfigJson, findClaudeCodeConfig, getClaudeCodeConfigPath } from './config-desktop.js'
 import { printHeader } from './ui.js'
 
 async function main(): Promise<void> {
@@ -19,8 +19,9 @@ async function main(): Promise<void> {
     message: '¿Qué cliente querés configurar?',
     options: [
       { value: 'desktop', label: 'Claude Desktop  (app de escritorio)' },
+      { value: 'code',    label: 'Claude Code  (CLI para desarrolladores)' },
       { value: 'web',     label: 'Claude.ai  (web)' },
-      { value: 'both',    label: 'Ambos' },
+      { value: 'all',     label: 'Todos' },
     ],
   })
   if (isCancel(client)) { cancel('Setup cancelado.'); process.exit(0) }
@@ -67,9 +68,10 @@ async function main(): Promise<void> {
   if (isCancel(nameInput)) { cancel('Setup cancelado.'); process.exit(0) }
   const name = (nameInput as string).trim()
 
-  // ── Paso 4: configurar Desktop ───────────────────────────────────────
-  const doDesktop = client === 'desktop' || client === 'both'
-  const doWeb     = client === 'web'     || client === 'both'
+  // ── Paso 4: configurar clientes ─────────────────────────────────────
+  const doDesktop = client === 'desktop' || client === 'all'
+  const doCode    = client === 'code'    || client === 'all'
+  const doWeb     = client === 'web'     || client === 'all'
 
   if (doDesktop) {
     const configPath = findDesktopConfig()
@@ -98,10 +100,39 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── Paso 5: instrucciones Claude.ai web ─────────────────────────────
+  // ── Paso 5: Claude Code ──────────────────────────────────────────────
+  if (doCode) {
+    const configPath = findClaudeCodeConfig()
+
+    if (configPath) {
+      const result = writeDesktopConfig(configPath, name, token, false)
+
+      if (result.existed) {
+        const overwrite = await confirm({
+          message: `Ya existe una conexión "${name}" en Claude Code. ¿Sobreescribir?`,
+        })
+        if (isCancel(overwrite) || !overwrite) {
+          note('Conexión no modificada.', 'Claude Code')
+        } else {
+          writeDesktopConfig(configPath, name, token, true)
+          note(`✔ Conexión "${name}" actualizada en Claude Code`, 'Claude Code')
+        }
+      } else {
+        note(`✔ Conexión "${name}" guardada en Claude Code`, 'Claude Code')
+      }
+    } else {
+      const settingsPath = getClaudeCodeConfigPath()
+      note(
+        `No encontré settings.json de Claude Code.\n\nCreá el archivo en:\n  ${settingsPath}\n\nCon este contenido:\n\n${getConfigJson(name, token)}`,
+        'Claude Code — Configuración manual',
+      )
+    }
+  }
+
+  // ── Paso 6: instrucciones Claude.ai web ─────────────────────────────
   if (doWeb) {
     note(
-      `Agregá en Claude.ai → Settings → Integrations → Add integration:\n\n  URL:    https://b24mcp-app.bit2beat.com/lite/mcp\n  Header: Authorization: Bearer ${token}`,
+      `Agregá en Claude.ai → Settings → Integrations → Add integration:\n\n  URL:    https://b24-mcp.bit2beat.com/lite/mcp\n  Header: Authorization: Bearer ${token}`,
       'Claude.ai Web',
     )
   }
