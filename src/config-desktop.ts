@@ -84,7 +84,7 @@ function desktopServerEntry(token: string): StdioMcpServer {
     command: resolveNpxCommand(),
     args: [
       '-y',
-      'mcp-remote',
+      'mcp-remote@0.1.38',
       MCP_URL,
       '--header',
       `Authorization: Bearer ${token}`,

@@ -31,7 +31,7 @@ describe('writeDesktopConfig', () => {
       command: 'npx',
       args: [
         '-y',
-        'mcp-remote',
+        'mcp-remote@0.1.38',
         'https://b24-mcp.bit2beat.com/lite/mcp',
         '--header',
         'Authorization: Bearer b24lite_tok',
