@@ -14,7 +14,6 @@ import { runAutomations } from './automations.js'
 async function main(): Promise<void> {
   const arg = process.argv[2]
   if (arg === 'automations') {
-    const { select, isCancel, cancel } = await import('@clack/prompts')
     const client = await select({
       message: '¿Qué cliente vas a usar para las automatizaciones?',
       options: [
