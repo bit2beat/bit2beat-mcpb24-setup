@@ -9,8 +9,29 @@ const { green, red } = pc
 import { verifyToken } from './verify.js'
 import { writeDesktopConfig, writeClaudeCodeConfig, checkNode } from './config-desktop.js'
 import { printHeader } from './ui.js'
+import { runAutomations } from './automations.js'
 
 async function main(): Promise<void> {
+  const arg = process.argv[2]
+  if (arg === 'automations') {
+    const { select, isCancel, cancel } = await import('@clack/prompts')
+    const client = await select({
+      message: '¿Qué cliente vas a usar para las automatizaciones?',
+      options: [
+        { value: 'code', label: 'Claude Code' },
+        { value: 'desktop', label: 'Claude Desktop' },
+        { value: 'web', label: 'Claude.ai (web) — no soporta skills' },
+      ],
+    })
+    if (isCancel(client)) { cancel('Cancelado.'); process.exit(0) }
+    if (client === 'web') {
+      console.log('\nLas automatizaciones requieren Claude Code o Desktop. La web no soporta skills.\n')
+      process.exit(0)
+    }
+    await runAutomations(client as 'code' | 'desktop')
+    return
+  }
+
   printHeader()
   intro('Configuración de Bitrix24 MCP para Claude')
 
