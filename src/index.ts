@@ -7,7 +7,7 @@ import {
 import pc from 'picocolors'
 const { green, red } = pc
 import { verifyToken } from './verify.js'
-import { writeDesktopConfig, writeClaudeCodeConfig, isNpxAvailable } from './config-desktop.js'
+import { writeDesktopConfig, writeClaudeCodeConfig, checkNode } from './config-desktop.js'
 import { printHeader } from './ui.js'
 
 async function main(): Promise<void> {
@@ -73,10 +73,17 @@ async function main(): Promise<void> {
   const doCode    = client === 'code'    || client === 'all'
   const doWeb     = client === 'web'     || client === 'all'
 
-  if (doDesktop && !isNpxAvailable()) {
+  const nodeCheck = doDesktop ? checkNode() : { ok: true as const }
+
+  if (doDesktop && !nodeCheck.ok && nodeCheck.reason === 'missing') {
     note(
-      'Claude Desktop necesita Node.js para funcionar.\n\nInstalá Node.js desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.',
+      'Claude Desktop necesita Node.js 20 o superior.\n\nInstalá Node.js desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.',
       'Claude Desktop — Falta Node.js',
+    )
+  } else if (doDesktop && !nodeCheck.ok && nodeCheck.reason === 'outdated') {
+    note(
+      `Tu versión de Node.js (${nodeCheck.version}) es muy vieja.\n\nClaude Desktop necesita Node.js 20 o superior.\nActualizá desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.`,
+      'Claude Desktop — Node.js desactualizado',
     )
   } else if (doDesktop) {
     const result = writeDesktopConfig(name, token, false)

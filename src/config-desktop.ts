@@ -28,18 +28,39 @@ export interface WriteResult {
   existed: boolean
 }
 
+// mcp-remote (vía undici) requiere Node 20.18.1+
+const MIN_NODE_MAJOR = 20
+
+export type NodeCheck =
+  | { ok: true }
+  | { ok: false; reason: 'missing' | 'outdated'; version?: string }
+
 /**
- * Claude Desktop spawns `npx mcp-remote` locally, so Node.js must be present.
- * Returns true if npx is available on the system PATH.
+ * Claude Desktop spawns `npx mcp-remote` locally, que necesita Node 20+.
+ * Verifica que npx exista y que la versión de Node sea suficiente.
  */
-export function isNpxAvailable(): boolean {
+export function checkNode(): NodeCheck {
+  // npx disponible?
   try {
     const cmd = os.platform() === 'win32' ? 'where npx' : 'command -v npx'
     execSync(cmd, { stdio: 'ignore' })
-    return true
   } catch {
-    return false
+    return { ok: false, reason: 'missing' }
   }
+
+  // versión de node suficiente? (npx usa el mismo node del PATH)
+  try {
+    const raw = execSync('node --version', { encoding: 'utf-8' }).trim() // ej: v20.11.1
+    const major = parseInt(raw.replace(/^v/, '').split('.')[0], 10)
+    if (!Number.isFinite(major) || major < MIN_NODE_MAJOR) {
+      return { ok: false, reason: 'outdated', version: raw }
+    }
+  } catch {
+    // Si no podemos leer la versión, asumimos que está bien (npx existe)
+    return { ok: true }
+  }
+
+  return { ok: true }
 }
 
 // ─── Claude Desktop config path (install-type agnostic on Windows) ────────────
