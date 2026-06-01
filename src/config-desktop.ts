@@ -2,9 +2,9 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { execSync } from 'node:child_process'
 
 const MCP_URL = 'https://b24-mcp.bit2beat.com/lite/mcp'
+const MCP_REMOTE = 'mcp-remote@0.1.38' // pinned for partner stability
 
 // Claude Code supports native HTTP transport
 interface HttpMcpServer {
@@ -13,10 +13,12 @@ interface HttpMcpServer {
   headers?: Record<string, string>
 }
 
-// Claude Desktop needs an stdio bridge (mcp-remote)
+// Claude Desktop needs an stdio bridge (mcp-remote spawned via node)
 interface StdioMcpServer {
   command: string
   args: string[]
+  env?: Record<string, string>
+  windowsHide?: boolean
 }
 
 type McpServer = HttpMcpServer | StdioMcpServer
@@ -25,35 +27,7 @@ export interface WriteResult {
   existed: boolean
 }
 
-// ─── npx resolution (Windows-safe) ───────────────────────────────────────────
-
-/**
- * On Windows, returns the 8.3 short path of npx.cmd to avoid the
- * "C:\Program Files" space bug when Claude Desktop wraps the command in cmd /C.
- * On macOS/Linux, plain "npx" works fine.
- */
-function resolveNpxCommand(): string {
-  if (os.platform() !== 'win32') return 'npx'
-
-  try {
-    const located = execSync('where npx.cmd', { encoding: 'utf-8' })
-      .split(/\r?\n/)
-      .map(l => l.trim())
-      .filter(Boolean)[0]
-    if (!located) return 'npx'
-
-    const short = execSync(`for %I in ("${located}") do @echo %~sI`, {
-      encoding: 'utf-8',
-      shell: 'cmd.exe',
-    }).trim()
-
-    return short || located
-  } catch {
-    return 'npx'
-  }
-}
-
-// ─── Claude Desktop config path (MSIX-aware on Windows) ───────────────────────
+// ─── Claude Desktop config path (install-type agnostic on Windows) ────────────
 
 export function getDesktopConfigPath(): string {
   const platform = os.platform()
@@ -65,11 +39,22 @@ export function getDesktopConfigPath(): string {
 
   if (platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA ?? path.win32.join(home, 'AppData', 'Local')
-    const msixDir = path.win32.join(localAppData, 'Packages', 'Claude_pzs8sxrjxfjjc')
-    // MSIX install reads from the virtualized LocalCache path
-    if (fs.existsSync(msixDir)) {
-      return path.win32.join(msixDir, 'LocalCache', 'Roaming', 'Claude', 'claude_desktop_config.json')
+    const packagesDir = path.win32.join(localAppData, 'Packages')
+
+    // MSIX / Store install: virtualized path under Packages\Claude*\LocalCache\Roaming\Claude
+    try {
+      const claudePkg = fs.readdirSync(packagesDir).find(e => e.startsWith('Claude'))
+      if (claudePkg) {
+        const msixClaudeDir = path.win32.join(packagesDir, claudePkg, 'LocalCache', 'Roaming', 'Claude')
+        if (fs.existsSync(msixClaudeDir)) {
+          return path.win32.join(msixClaudeDir, 'claude_desktop_config.json')
+        }
+      }
+    } catch {
+      // Packages dir not readable — fall through to classic install path
     }
+
+    // Classic .exe install
     const appData = process.env.APPDATA ?? path.win32.join(home, 'AppData', 'Roaming')
     return path.win32.join(appData, 'Claude', 'claude_desktop_config.json')
   }
@@ -77,18 +62,26 @@ export function getDesktopConfigPath(): string {
   return path.posix.join(home, '.config', 'Claude', 'claude_desktop_config.json')
 }
 
-// ─── Claude Desktop (stdio bridge via mcp-remote) ─────────────────────────────
+// ─── Claude Desktop server entry (stdio bridge) ───────────────────────────────
 
 function desktopServerEntry(token: string): StdioMcpServer {
+  if (os.platform() === 'win32') {
+    // Windows-safe pattern:
+    //  - "cmd /c npx" so cmd resolves npx from PATH (no 8.3 short-name dependency)
+    //  - token in env via ${AUTH_HEADER} so no arg contains a space (avoids Windows arg-splitting bug)
+    //  - windowsHide so no console window flashes
+    return {
+      command: 'cmd',
+      args: ['/c', 'npx', '-y', MCP_REMOTE, MCP_URL, '--header', 'Authorization:${AUTH_HEADER}'],
+      env: { AUTH_HEADER: `Bearer ${token}` },
+      windowsHide: true,
+    }
+  }
+
+  // macOS / Linux: npx is directly spawnable, no space issues
   return {
-    command: resolveNpxCommand(),
-    args: [
-      '-y',
-      'mcp-remote@0.1.38',
-      MCP_URL,
-      '--header',
-      `Authorization: Bearer ${token}`,
-    ],
+    command: 'npx',
+    args: ['-y', MCP_REMOTE, MCP_URL, '--header', `Authorization: Bearer ${token}`],
   }
 }
 
