@@ -5,7 +5,30 @@ import * as path from 'node:path'
 import { execSync } from 'node:child_process'
 
 const MCP_URL = 'https://b24-mcp.bit2beat.com/lite/mcp'
-const MCP_REMOTE = 'mcp-remote@0.1.38' // pinned for partner stability
+
+// Versiones de mcp-remote según la versión de Node disponible:
+//  - Node 20+  → 0.1.38 (usa undici 7, requiere Node 20.18.1+)
+//  - Node 18-19 → 0.1.25 (última que usa fetch nativo, compatible con Node 18)
+const MCP_REMOTE_MODERN = 'mcp-remote@0.1.38'
+const MCP_REMOTE_LEGACY = 'mcp-remote@0.1.25'
+const MIN_NODE_MODERN = 20
+
+function getNodeMajor(): number | null {
+  try {
+    const raw = execSync('node --version', { encoding: 'utf-8' }).trim() // ej: v20.11.1
+    const major = parseInt(raw.replace(/^v/, '').split('.')[0], 10)
+    return Number.isFinite(major) ? major : null
+  } catch {
+    return null
+  }
+}
+
+/** Elige la versión de mcp-remote compatible con el Node instalado. */
+function pickMcpRemote(): string {
+  const major = getNodeMajor()
+  if (major !== null && major < MIN_NODE_MODERN) return MCP_REMOTE_LEGACY
+  return MCP_REMOTE_MODERN
+}
 
 // Claude Code supports native HTTP transport
 interface HttpMcpServer {
@@ -28,19 +51,16 @@ export interface WriteResult {
   existed: boolean
 }
 
-// mcp-remote (vía undici) requiere Node 20.18.1+
-const MIN_NODE_MAJOR = 20
-
 export type NodeCheck =
-  | { ok: true }
-  | { ok: false; reason: 'missing' | 'outdated'; version?: string }
+  | { ok: true; legacy: boolean } // legacy=true → Node 18-19 (usa mcp-remote viejo)
+  | { ok: false; reason: 'missing' }
 
 /**
- * Claude Desktop spawns `npx mcp-remote` locally, que necesita Node 20+.
- * Verifica que npx exista y que la versión de Node sea suficiente.
+ * Claude Desktop spawns `npx mcp-remote` localmente, que necesita Node.
+ * Verifica que npx exista. `legacy` indica si el Node es 18-19 (soportado,
+ * pero EOL — conviene actualizar a 20+).
  */
 export function checkNode(): NodeCheck {
-  // npx disponible?
   try {
     const cmd = os.platform() === 'win32' ? 'where npx' : 'command -v npx'
     execSync(cmd, { stdio: 'ignore' })
@@ -48,19 +68,8 @@ export function checkNode(): NodeCheck {
     return { ok: false, reason: 'missing' }
   }
 
-  // versión de node suficiente? (npx usa el mismo node del PATH)
-  try {
-    const raw = execSync('node --version', { encoding: 'utf-8' }).trim() // ej: v20.11.1
-    const major = parseInt(raw.replace(/^v/, '').split('.')[0], 10)
-    if (!Number.isFinite(major) || major < MIN_NODE_MAJOR) {
-      return { ok: false, reason: 'outdated', version: raw }
-    }
-  } catch {
-    // Si no podemos leer la versión, asumimos que está bien (npx existe)
-    return { ok: true }
-  }
-
-  return { ok: true }
+  const major = getNodeMajor()
+  return { ok: true, legacy: major !== null && major < MIN_NODE_MODERN }
 }
 
 // ─── Claude Desktop config path (install-type agnostic on Windows) ────────────
@@ -101,6 +110,8 @@ export function getDesktopConfigPath(): string {
 // ─── Claude Desktop server entry (stdio bridge) ───────────────────────────────
 
 function desktopServerEntry(token: string): StdioMcpServer {
+  const mcpRemote = pickMcpRemote()
+
   if (os.platform() === 'win32') {
     // Windows-safe pattern:
     //  - "cmd /c npx" so cmd resolves npx from PATH (no 8.3 short-name dependency)
@@ -108,7 +119,7 @@ function desktopServerEntry(token: string): StdioMcpServer {
     //  - windowsHide so no console window flashes
     return {
       command: 'cmd',
-      args: ['/c', 'npx', '-y', MCP_REMOTE, MCP_URL, '--header', 'Authorization:${AUTH_HEADER}'],
+      args: ['/c', 'npx', '-y', mcpRemote, MCP_URL, '--header', 'Authorization:${AUTH_HEADER}'],
       env: { AUTH_HEADER: `Bearer ${token}` },
       windowsHide: true,
     }
@@ -117,7 +128,7 @@ function desktopServerEntry(token: string): StdioMcpServer {
   // macOS / Linux: npx is directly spawnable, no space issues
   return {
     command: 'npx',
-    args: ['-y', MCP_REMOTE, MCP_URL, '--header', `Authorization: Bearer ${token}`],
+    args: ['-y', mcpRemote, MCP_URL, '--header', `Authorization: Bearer ${token}`],
   }
 }
 

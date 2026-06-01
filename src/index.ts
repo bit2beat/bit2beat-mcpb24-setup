@@ -73,19 +73,20 @@ async function main(): Promise<void> {
   const doCode    = client === 'code'    || client === 'all'
   const doWeb     = client === 'web'     || client === 'all'
 
-  const nodeCheck = doDesktop ? checkNode() : { ok: true as const }
+  const nodeCheck = doDesktop ? checkNode() : { ok: true as const, legacy: false }
 
-  if (doDesktop && !nodeCheck.ok && nodeCheck.reason === 'missing') {
+  if (doDesktop && !nodeCheck.ok) {
     note(
-      'Claude Desktop necesita Node.js 20 o superior.\n\nInstalá Node.js desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.',
+      'Claude Desktop necesita Node.js instalado.\n\nInstalá Node.js desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.',
       'Claude Desktop — Falta Node.js',
     )
-  } else if (doDesktop && !nodeCheck.ok && nodeCheck.reason === 'outdated') {
-    note(
-      `Tu versión de Node.js (${nodeCheck.version}) es muy vieja.\n\nClaude Desktop necesita Node.js 20 o superior.\nActualizá desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.`,
-      'Claude Desktop — Node.js desactualizado',
-    )
   } else if (doDesktop) {
+    if (nodeCheck.ok && nodeCheck.legacy) {
+      note(
+        'Detecté Node.js 18-19 (compatible, pero ya sin soporte oficial).\nVoy a usar una versión compatible del puente.\nRecomendamos actualizar a Node.js 20+ desde https://nodejs.org.',
+        'Aviso — Node.js antiguo',
+      )
+    }
     const result = writeDesktopConfig(name, token, false)
 
     if (result.existed) {

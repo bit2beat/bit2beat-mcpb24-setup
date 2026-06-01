@@ -2,9 +2,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
+import * as child_process from 'node:child_process'
 
 vi.mock('node:fs')
 vi.mock('node:os')
+vi.mock('node:child_process')
+
+// Default: Node 20 so pickMcpRemote() returns the modern mcp-remote.
+// `where npx` / `command -v npx` return '' (success). `node --version` → v20.
+vi.mocked(child_process.execSync).mockImplementation((cmd: string) => {
+  if (String(cmd).includes('node --version')) return 'v20.11.1\n' as never
+  return '' as never
+})
 
 // Import AFTER mocking
 const { writeDesktopConfig, writeClaudeCodeConfig } = await import('../src/config-desktop.js')
@@ -12,6 +21,10 @@ const { writeDesktopConfig, writeClaudeCodeConfig } = await import('../src/confi
 describe('writeDesktopConfig (macOS/Linux)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(child_process.execSync).mockImplementation((cmd: string) => {
+      if (String(cmd).includes('node --version')) return 'v20.11.1\n' as never
+      return '' as never
+    })
     vi.mocked(os.platform).mockReturnValue('darwin')
     vi.mocked(os.homedir).mockReturnValue('/Users/test')
   })
@@ -34,6 +47,20 @@ describe('writeDesktopConfig (macOS/Linux)', () => {
         'Authorization: Bearer b24lite_tok',
       ],
     })
+  })
+
+  it('uses legacy mcp-remote on Node 18', () => {
+    vi.mocked(child_process.execSync).mockImplementation((cmd: string) => {
+      if (String(cmd).includes('node --version')) return 'v18.16.1\n' as never
+      return '' as never
+    })
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    const writeMock = vi.mocked(fs.writeFileSync).mockImplementation(() => {})
+
+    writeDesktopConfig('miportal', 'b24lite_tok', false)
+
+    const written = JSON.parse(writeMock.mock.calls[0][1] as string)
+    expect(written.mcpServers.miportal.args).toContain('mcp-remote@0.1.25')
   })
 
   it('merges with existing connections without overwriting them', () => {
@@ -65,6 +92,10 @@ describe('writeDesktopConfig (macOS/Linux)', () => {
 describe('writeDesktopConfig (Windows)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(child_process.execSync).mockImplementation((cmd: string) => {
+      if (String(cmd).includes('node --version')) return 'v20.11.1\n' as never
+      return '' as never
+    })
     vi.mocked(os.platform).mockReturnValue('win32')
     vi.mocked(os.homedir).mockReturnValue('C:\\Users\\test')
     vi.stubEnv('LOCALAPPDATA', 'C:\\Users\\test\\AppData\\Local')
@@ -116,6 +147,10 @@ describe('writeDesktopConfig (Windows)', () => {
 describe('writeClaudeCodeConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(child_process.execSync).mockImplementation((cmd: string) => {
+      if (String(cmd).includes('node --version')) return 'v20.11.1\n' as never
+      return '' as never
+    })
     vi.mocked(os.platform).mockReturnValue('darwin')
     vi.mocked(os.homedir).mockReturnValue('/Users/test')
   })
