@@ -7,7 +7,7 @@ import {
 import pc from 'picocolors'
 const { green, red } = pc
 import { verifyToken } from './verify.js'
-import { writeDesktopConfig, writeClaudeCodeConfig } from './config-desktop.js'
+import { writeDesktopConfig, writeClaudeCodeConfig, isNpxAvailable } from './config-desktop.js'
 import { printHeader } from './ui.js'
 
 async function main(): Promise<void> {
@@ -73,7 +73,12 @@ async function main(): Promise<void> {
   const doCode    = client === 'code'    || client === 'all'
   const doWeb     = client === 'web'     || client === 'all'
 
-  if (doDesktop) {
+  if (doDesktop && !isNpxAvailable()) {
+    note(
+      'Claude Desktop necesita Node.js para funcionar.\n\nInstalá Node.js desde https://nodejs.org (versión LTS),\nreiniciá la terminal y volvé a correr este asistente.',
+      'Claude Desktop — Falta Node.js',
+    )
+  } else if (doDesktop) {
     const result = writeDesktopConfig(name, token, false)
 
     if (result.existed) {

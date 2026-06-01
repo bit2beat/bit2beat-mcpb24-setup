@@ -2,6 +2,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { execSync } from 'node:child_process'
 
 const MCP_URL = 'https://b24-mcp.bit2beat.com/lite/mcp'
 const MCP_REMOTE = 'mcp-remote@0.1.38' // pinned for partner stability
@@ -25,6 +26,20 @@ type McpServer = HttpMcpServer | StdioMcpServer
 
 export interface WriteResult {
   existed: boolean
+}
+
+/**
+ * Claude Desktop spawns `npx mcp-remote` locally, so Node.js must be present.
+ * Returns true if npx is available on the system PATH.
+ */
+export function isNpxAvailable(): boolean {
+  try {
+    const cmd = os.platform() === 'win32' ? 'where npx' : 'command -v npx'
+    execSync(cmd, { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 }
 
 // ─── Claude Desktop config path (install-type agnostic on Windows) ────────────
