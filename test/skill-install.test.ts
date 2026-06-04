@@ -9,33 +9,34 @@ const { getSkillDir, installSkill } = await import('../src/skill-install.js')
 
 describe('getSkillDir', () => {
   beforeEach(() => { vi.clearAllMocks(); vi.mocked(os.homedir).mockReturnValue('/home/u') })
-
-  it('returns claude skills dir', () => {
-    expect(getSkillDir('code')).toMatch(/\.claude[\\/]skills[\\/]b24-automations$/)
+  it('returns the claude skills root dir', () => {
+    expect(getSkillDir('code')).toMatch(/\.claude[\\/]skills$/)
   })
 })
 
 describe('installSkill', () => {
   beforeEach(() => { vi.clearAllMocks(); vi.mocked(os.homedir).mockReturnValue('/home/u') })
 
-  it('copies skill files but skips samples, FORMAT_NOTES.md, test_parser.py', () => {
-    vi.mocked(fs.existsSync).mockReturnValue(true)
-    vi.mocked(fs.readdirSync).mockReturnValue([
-      'skill.md', 'parser.py', 'activities_catalog.json', 'url_patterns.json',
-      'samples', 'FORMAT_NOTES.md', 'test_parser.py',
-    ] as never)
+  it('copies skill tree recursively, skipping samples/FORMAT_NOTES.md', () => {
+    let firstCall = true
+    vi.mocked(fs.readdirSync).mockImplementation((() => {
+      if (!firstCall) return [] as never
+      firstCall = false
+      return [
+        { name: 'portal-scout', isDirectory: () => true },
+        { name: 'SKILL.md', isDirectory: () => false },
+        { name: 'samples', isDirectory: () => true },
+        { name: 'FORMAT_NOTES.md', isDirectory: () => false },
+      ] as never
+    }) as never)
     vi.mocked(fs.mkdirSync).mockImplementation(() => undefined as never)
     const cp = vi.mocked(fs.copyFileSync).mockImplementation(() => {})
-
     installSkill('code')
-
-    const copiedSources = cp.mock.calls.map(c => String(c[0]))
-    // incluidos
-    expect(copiedSources.some(p => p.endsWith('skill.md'))).toBe(true)
-    expect(copiedSources.some(p => p.endsWith('parser.py'))).toBe(true)
-    // excluidos
-    expect(copiedSources.some(p => p.endsWith('samples'))).toBe(false)
-    expect(copiedSources.some(p => p.endsWith('FORMAT_NOTES.md'))).toBe(false)
-    expect(copiedSources.some(p => p.endsWith('test_parser.py'))).toBe(false)
+    const copied = cp.mock.calls.map(c => String(c[1]))
+    // SKILL.md at root level is copied
+    expect(copied.some(p => p.endsWith('SKILL.md'))).toBe(true)
+    // samples and FORMAT_NOTES.md are skipped
+    expect(copied.some(p => p.includes('samples'))).toBe(false)
+    expect(copied.some(p => p.endsWith('FORMAT_NOTES.md'))).toBe(false)
   })
 })

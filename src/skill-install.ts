@@ -5,24 +5,30 @@ import { fileURLToPath } from 'node:url'
 
 export type SkillClient = 'code' | 'desktop'
 
-// Carpeta de skills por cliente (Claude Code y Desktop leen de ~/.claude/skills)
+// Claude Code y Desktop leen las skills de ~/.claude/skills
 export function getSkillDir(_client: SkillClient): string {
-  return path.join(os.homedir(), '.claude', 'skills', 'b24-automations')
+  return path.join(os.homedir(), '.claude', 'skills')
 }
 
-// La skill viene bundled en dist/../skill (resuelto relativo al módulo)
-function bundledSkillDir(): string {
+// Las skills vienen bundled en dist/../skills (resuelto relativo al módulo)
+function bundledSkillsDir(): string {
   const here = path.dirname(fileURLToPath(import.meta.url))
-  return path.join(here, '..', 'skill')
+  return path.join(here, '..', 'skills')
+}
+
+function copyDirRecursive(src: string, dest: string): void {
+  fs.mkdirSync(dest, { recursive: true })
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    if (entry.name === 'samples' || entry.name === 'FORMAT_NOTES.md') continue
+    const s = path.join(src, entry.name)
+    const d = path.join(dest, entry.name)
+    if (entry.isDirectory()) copyDirRecursive(s, d)
+    else fs.copyFileSync(s, d)
+  }
 }
 
 export function installSkill(client: SkillClient): string {
   const target = getSkillDir(client)
-  const source = bundledSkillDir()
-  fs.mkdirSync(target, { recursive: true })
-  for (const file of fs.readdirSync(source)) {
-    if (file === 'samples' || file === 'FORMAT_NOTES.md' || file === 'test_parser.py') continue
-    fs.copyFileSync(path.join(source, String(file)), path.join(target, String(file)))
-  }
+  copyDirRecursive(bundledSkillsDir(), target)
   return target
 }
