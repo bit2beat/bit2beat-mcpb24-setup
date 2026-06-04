@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.log
 skill/samples/
+__pycache__/
+*.pyc
