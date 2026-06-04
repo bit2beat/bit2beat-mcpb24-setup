@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const arg = process.argv[2]
   if (arg === 'automations') {
     const client = await select({
-      message: '¿Qué cliente vas a usar para las automatizaciones?',
+      message: '¿Qué cliente vas a usar para instalar las skills de bit2beat?',
       options: [
         { value: 'code', label: 'Claude Code' },
         { value: 'desktop', label: 'Claude Desktop' },
@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     })
     if (isCancel(client)) { cancel('Cancelado.'); process.exit(0) }
     if (client === 'web') {
-      console.log('\nLas automatizaciones requieren Claude Code o Desktop. La web no soporta skills.\n')
+      console.log('\nLas skills de bit2beat requieren Claude Code o Desktop. La web no soporta skills.\n')
       process.exit(0)
     }
     await runAutomations(client as 'code' | 'desktop')
