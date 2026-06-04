@@ -22,10 +22,19 @@ Funciona sobre cualquier portal Bitrix24. Requiere los archivos de portal-scout 
 
 | Archivo | Cuándo leerlo |
 |---|---|
-| `url_patterns.json` | Siempre que se navegue el portal vía Chrome |
 | `activities_catalog.json` | Cuando se lee o genera un .bpt |
 | `scripts/parser.py` | Cuando se descomprime y analiza un .bpt |
 | `scripts/builder.py` | Cuando se modifica o crea un .bpt |
+| `scripts/test_roundtrip.py` | **Gate obligatorio** antes de importar/escribir un .bpt (ver "Regla de seguridad") |
+
+Las URLs del portal usadas con Chrome están inline en cada flujo (no hay
+archivo `url_patterns.json`):
+
+| Acción | URL |
+|---|---|
+| Página de automatización de un pipeline | `{portal_url}/crm/deal/automation/{categoryId}/` |
+| Editor/exportación de un template | `{portal_url}/crm/configs/bp/CRM_DEAL/edit/{templateId}/` |
+| Importar plantilla | `{portal_url}/crm/configs/bp/CRM_DEAL/` |
 
 ---
 
@@ -48,9 +57,15 @@ Si alguno de estos archivos no existe → ejecutar `/portal-scout básico` prime
 
 ## Dependencias de entorno
 
-- **MCP Bitrix24** del portal objetivo (webhook configurado en el proyecto)
+- **MCP de bit2beat conectado** (hosteado; la auth la resuelve el token, no hay
+  webhook ni servidor local). Las lecturas vía API usan `b24_read_call`
+  (p. ej. `bizproc.workflow.template.list` para listar templates).
 - **Chrome con extensión Claude in Chrome** conectada y sesión de Bitrix24 abierta
+  (necesaria para exportar/importar .bpt: no hay método REST para eso).
 - **Python** con librería `phpserialize` instalada (`pip install phpserialize`)
+
+> El MCP hosteado no expone passthrough de escritura: la importación de .bpt
+> ocurre por Chrome, nunca por un tool de escritura del MCP.
 
 ---
 
@@ -65,7 +80,6 @@ Leer clientes/{nombre_cliente}/portal/scout_pipelines.json
 ### Paso 2: Por cada pipeline, navegar la página de automatización
 ```
 [Chrome]
-Leer url_patterns.json → automation_page
 Navegar: {portal_url}/crm/deal/automation/{categoryId}/
 Esperar 4 segundos (carga del iframe)
 ```
@@ -114,7 +128,6 @@ Guardar el resultado en `clientes/{nombre_cliente}/automatizaciones/automations_
 ### Paso 4: Para etapas con hasBizProc=true, exportar el template
 ```
 [Chrome]
-Leer url_patterns.json → bizproc_editor
 Navegar: {portal_url}/crm/configs/bp/CRM_DEAL/edit/{templateId}/
 Esperar 3 segundos
 Ejecutar BCPProcessExport()
@@ -245,10 +258,36 @@ Asignar la plantilla importada
 
 ---
 
+## Regla de seguridad — Gate de round-trip (OBLIGATORIO antes de escribir)
+
+Antes de **importar o escribir** cualquier .bpt (Flujos 2 y 3), validar que el
+`builder.py` reconstruye la estructura de forma fiel. La importación de un .bpt
+corrupto puede romper una automatización en producción.
+
+```
+[scripts/test_roundtrip.py]
+# Validación base (siempre):
+python scripts/test_roundtrip.py
+
+# Validación completa contra el .bpt real que se va a modificar:
+python scripts/test_roundtrip.py --bpt clientes/{cliente}/automatizaciones/{archivo}.bpt
+```
+
+- **GATE: PASS** → el builder es confiable; se puede generar e importar el .bpt.
+- **GATE: FAIL** → **no importar**. La skill queda limitada a leer/exportar y se
+  avisa al usuario que la modificación no es segura para ese template.
+
+El test verifica: `estructura → save() → .bpt → load() → estructura` es
+estructuralmente equivalente (equivalencia de arrays PHP), y que el parser puede
+releer lo que el builder escribió.
+
+---
+
 ## Reglas generales
 
-1. **Nunca asumir un valor** — siempre resolver desde los archivos de scout o confirmar con el usuario
-2. **Mostrar el mapa antes de modificar** — el usuario debe aprobar los valores traducidos
-3. **Guardar el .bpt original antes de modificar** — nunca sobrescribir sin backup
-4. **Si una actividad no está en el catálogo** — informar que es custom/Market y no modificarla
-5. **Las actividades `rest_*`** son portal-específicas — no transferibles entre portales sin que la app esté instalada en destino
+1. **Correr el gate de round-trip antes de importar** — ver la regla de seguridad de arriba; si falla, solo leer/exportar
+2. **Nunca asumir un valor** — siempre resolver desde los archivos de scout o confirmar con el usuario
+3. **Mostrar el mapa antes de modificar** — el usuario debe aprobar los valores traducidos
+4. **Guardar el .bpt original antes de modificar** — nunca sobrescribir sin backup
+5. **Si una actividad no está en el catálogo** — informar que es custom/Market y no modificarla
+6. **Las actividades `rest_*`** son portal-específicas — no transferibles entre portales sin que la app esté instalada en destino
