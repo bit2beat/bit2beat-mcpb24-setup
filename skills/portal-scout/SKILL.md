@@ -28,6 +28,27 @@ del skill `bizproc` cuando el partner lo solicita explícitamente.
 
 ---
 
+## Cómo se llaman las lecturas
+
+Este skill usa el MCP hosteado de bit2beat. Todas las lecturas pasan por el
+tool **`b24_read_call`**, que acepta `method` (el método REST de Bitrix) y
+`params` (filtros/select opcionales). Solo admite métodos de lectura
+(`.list` / `.get` / `.fields` / `.getfields` / `.getlist`); las escrituras no
+están permitidas por este tool.
+
+La notación `b24_read_call → crm.category.list` de abajo equivale a llamar:
+
+```
+b24_read_call(method: "crm.category.list", params: { ... })
+```
+
+Para listados largos, pasar `fetchAll: true` para traer todas las páginas.
+
+No hay que configurar webhook ni servidor local: la conexión y la auth las
+resuelve el MCP de bit2beat ya conectado (por token).
+
+---
+
 ## Dos modos
 
 | Modo | Qué incluye | Scopes necesarios |
@@ -46,7 +67,7 @@ Si el usuario no especifica, preguntar. Si dice "todo", "el portal entero" o "de
 
 ## Requisitos previos
 
-- **MCP configurado** con el webhook del portal a relevar
+- **MCP de bit2beat conectado** (la auth la resuelve el token; no se configura webhook ni servidor local)
 - `nombre_cliente` — nombre corto de la carpeta del cliente (ej: `acme`)
 - `portal_url` — URL base del portal (ej: `https://acme.bitrix24.com`)
 
@@ -68,7 +89,7 @@ Si no existe, crearla. Todos los archivos del relevamiento se guardan aquí.
 ### A.1 Pipelines
 
 ```
-b24_call → crm.category.list
+b24_read_call → crm.category.list
 → lista de {ID, NAME} de todos los pipelines del portal
 ```
 
@@ -78,7 +99,7 @@ Guardar en `scout_pipelines.json`.
 
 ```
 Por cada pipeline:
-  b24_call → crm.status.list
+  b24_read_call → crm.status.list
   filter: {ENTITY_ID: "DEAL_STAGE", CATEGORY_ID: pipeline.ID}
   → {STATUS_ID, NAME, SORT, COLOR}
 ```
@@ -123,7 +144,7 @@ automatización (qué hace cada robot, en qué etapa) lo lee `bizproc` con
 Chrome cuando se trabaja sobre una automatización específica.
 
 ```
-b24_call → bizproc.workflow.template.list
+b24_read_call → bizproc.workflow.template.list
 → {ID, NAME, DOCUMENT_TYPE, ACTIVE} de todos los templates definidos
   (incluye templates de deals y de procesos de negocio)
 ```
@@ -131,7 +152,7 @@ b24_call → bizproc.workflow.template.list
 Si el portal tiene procesos de negocio (tipo `bitrix_processes`):
 
 ```
-b24_call → lists.field.get
+b24_read_call → lists.field.get
   IBLOCK_TYPE_ID: "bitrix_processes"
   IBLOCK_ID: {id de cada proceso}
 → campos del proceso (qué datos almacena)
@@ -145,13 +166,13 @@ Guardar todo en `scout_automations.json`
 ## MÓDULO C — Catálogo de productos (solo modo completo)
 
 ```
-b24_call → catalog.catalog.list
+b24_read_call → catalog.catalog.list
 → {id, name, iblockId} de catálogos disponibles
 
-b24_call → catalog.priceType.list
+b24_read_call → catalog.priceType.list
 → tipos de precio {id, name, code}
 
-b24_call → catalog.store.list
+b24_read_call → catalog.store.list
 → depósitos {id, title, code, active}
 ```
 
@@ -164,7 +185,7 @@ Si está activo, guardar en `scout_catalog.json`.
 ## MÓDULO D — Tareas (solo modo completo)
 
 ```
-b24_call → tasks.task.getFields
+b24_read_call → tasks.task.getFields
 → campos disponibles y configurables de tareas
 ```
 
@@ -186,10 +207,10 @@ Guardar en `scout_disk.json`.
 ## MÓDULO F — Telefonía (solo modo completo)
 
 ```
-b24_call → telephony.externalLine.get
+b24_read_call → telephony.externalLine.get
 → líneas externas configuradas
 
-b24_call → voximplant.line.get  (si disponible)
+b24_read_call → voximplant.line.get  (si disponible)
 → líneas VoxImplant activas
 ```
 
@@ -200,7 +221,7 @@ Si el módulo no está activo, omitir. Si está activo, guardar en `scout_teleph
 ## MÓDULO G — Comunicaciones / Open Lines (solo modo completo)
 
 ```
-b24_call → imopenlines.config.list
+b24_read_call → imopenlines.config.list
 → líneas abiertas configuradas (chat en vivo, WhatsApp, etc.)
 ```
 
@@ -215,8 +236,8 @@ no instalado, registrar `{modulo: "no disponible"}` y continuar.
 
 ```
 b24_groups_list               → grupos y proyectos activos
-b24_call → rpa.type.list      → procesos RPA configurados
-b24_call → lists.get (IBLOCK_TYPE_ID: "lists") → listas personalizadas
+b24_read_call → rpa.type.list      → procesos RPA configurados
+b24_read_call → lists.get (IBLOCK_TYPE_ID: "lists") → listas personalizadas
 ```
 
 Consolidar en `scout_modules.json`.
@@ -237,7 +258,7 @@ Consolidar en `scout_modules.json`.
   "scout_mode": "básico | completo",
   "scouted_at": "{fecha ISO}",
   "carpeta": "clientes/{nombre_cliente}/portal/",
-  "mcp_webhook": "configurado en proyecto de Claude",
+  "mcp": "bit2beat hosted (auth por token)",
   "has_spa": true | false,
   "has_catalog": true | false,
   "has_telephony": true | false,
