@@ -32,9 +32,28 @@ ejecutar cualquier escritura en el portal.
 
 ## Dependencias de entorno
 
-- **MCP Bitrix24** del portal objetivo (webhook configurado)
+- **MCP de bit2beat conectado** (hosteado; la auth la resuelve el token, sin
+  webhook ni servidor local)
 - **Python** con `openpyxl` y `pandas` instalados
 - El archivo de entrada (Excel `.xlsx`/`.xls` o CSV `.csv`) accesible en disco
+
+### Tools del MCP que usa este skill
+
+| Operación | Tool | Notas |
+|---|---|---|
+| Leer catálogos/precios/depósitos/secciones | `b24_read_call` | pasar `method` (`catalog.*.list`) + `params` |
+| Crear sección | `b24_catalog_section_add` | `{fields:{...}}` |
+| Crear producto | `b24_products_create` | `{fields:{...}}` |
+| Actualizar producto | `b24_products_update` | `{id, fields:{...}}` |
+| Crear SKU (variante) | `b24_catalog_sku_add` | `{fields:{... PARENT_ID}}` |
+| Crear precio | `b24_catalog_price_set` | `{fields:{...}}` |
+| Actualizar precio | `b24_catalog_price_update` | `{id, fields:{...}}` — requiere el id del precio existente |
+| Cargar stock | `b24_catalog_store_product_set` | `{fields:{...}}` |
+| Actualizar stock | `b24_catalog_store_product_update` | `{id, fields:{...}}` — requiere el id del registro |
+| Descuento por volumen | `b24_catalog_rounding_rule_add` | `{fields:{...}}` |
+
+> `b24_read_call` solo admite lecturas (`.list`/`.get`/`.fields`). No existe
+> passthrough de escritura: cada escritura usa su tool nombrado de la tabla.
 
 ---
 
@@ -60,16 +79,16 @@ ejecutar cualquier escritura en el portal.
 ### 0.1 Leer configuración del catálogo del portal
 
 ```
-Herramienta: b24_call → catalog.catalog.list
+Herramienta: b24_read_call (method: "catalog.catalog.list")
 → obtener catalogId del catálogo vinculado a la tienda (o catálogo simple)
 
-Herramienta: b24_call → catalog.priceType.list
+Herramienta: b24_read_call (method: "catalog.priceType.list")
 → lista de {id, name, code} de tipos de precio disponibles
 
-Herramienta: b24_call → catalog.store.list
+Herramienta: b24_read_call (method: "catalog.store.list")
 → lista de {id, title, code} de depósitos activos
 
-Herramienta: b24_call → catalog.section.list con filter[catalogId]
+Herramienta: b24_read_call (method: "catalog.section.list", params: {filter: {iblockId}})
 → árbol de secciones existentes (para no duplicar)
 ```
 
@@ -205,8 +224,8 @@ Ejecutar en orden estricto. Nunca saltar pasos ni reordenar.
 ```
 Por cada sección detectada que no existe en portal_catalog_context:
   Si tiene padre → crear o verificar el padre primero (recursivo)
-  Herramienta: b24_call → catalog.section.add
-  Parámetros: {fields: {catalogId, name, code, iblockSectionId (padre si existe)}}
+  Herramienta: b24_catalog_section_add
+  Parámetros: {fields: {iblockId, name, iblockSectionId (padre si existe)}}
   → guardar {nombre: id} en mapa de secciones
 ```
 
@@ -215,16 +234,16 @@ Por cada sección detectada que no existe en portal_catalog_context:
 ```
 Por cada producto en datos normalizados:
   Si SKU ya existe (detectado en validación):
-    Herramienta: b24_call → catalog.product.update
+    Herramienta: b24_products_update  → {id (productId existente), fields: {...}}
   Si es nuevo:
-    Herramienta: b24_call → catalog.product.add
-  Parámetros mínimos: {fields: {catalogId, name, code (=SKU), iblockSectionId, active: "Y"}}
+    Herramienta: b24_products_create  → {fields: {...}}
+  Parámetros mínimos del fields: {iblockId, name, iblockSectionId, active: "Y"}
   → guardar {sku: productId} en mapa de productos
 ```
 
 Si el archivo incluye variantes (mismo SKU base con talle/color):
-- Crear producto padre con `catalog.product.add`
-- Crear SKUs hijos con `catalog.product.sku.add` vinculados al padre
+- Crear producto padre con `b24_products_create`
+- Crear SKUs hijos con `b24_catalog_sku_add` ({fields: {iblockId, name, PARENT_ID}}) vinculados al padre
 
 ### 3.3 Cargar precios
 
@@ -232,8 +251,11 @@ Si el archivo incluye variantes (mismo SKU base con talle/color):
 Por cada precio en datos normalizados:
   Resolver productId desde mapa de productos
   Resolver priceTypeId desde portal_catalog_context
-  Herramienta: b24_call → catalog.price.add (o .modify si ya existe)
-  Parámetros: {fields: {productId, catalogGroupId (=priceTypeId), price, currency}}
+  Si el precio ya existe para ese producto+tipo:
+    Herramienta: b24_catalog_price_update  → {id (id del precio), fields: {price, currency}}
+    (obtener el id con b24_read_call method "catalog.price.list" filtrando productId+catalogGroupId)
+  Si es nuevo:
+    Herramienta: b24_catalog_price_set     → {fields: {productId, catalogGroupId (=priceTypeId), price, currency}}
 ```
 
 ### 3.4 Cargar stock
@@ -242,15 +264,18 @@ Por cada precio en datos normalizados:
 Por cada línea de stock:
   Resolver productId desde mapa de productos
   Resolver storeId desde portal_catalog_context
-  Herramienta: b24_call → catalog.storeProduct.add (o .modify)
-  Parámetros: {fields: {productId, storeId, amount}}
+  Si ya existe registro de stock para ese producto+depósito:
+    Herramienta: b24_catalog_store_product_update  → {id (id del registro), fields: {amount}}
+    (obtener el id con b24_read_call method "catalog.storeProduct.list" filtrando productId+storeId)
+  Si es nuevo:
+    Herramienta: b24_catalog_store_product_set     → {fields: {productId, storeId, amount}}
 ```
 
 ### 3.5 Cargar descuentos por volumen (si existen en el archivo)
 
 ```
 Por cada regla de descuento:
-  Herramienta: b24_call → catalog.roundingRule.add
+  Herramienta: b24_catalog_rounding_rule_add
   Parámetros: {fields: {catalogGroupId, from (cantidad mínima), price (precio aplicable)}}
 ```
 
