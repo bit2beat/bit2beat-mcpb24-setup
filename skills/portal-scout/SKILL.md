@@ -67,9 +67,28 @@ Si el usuario no especifica, preguntar. Si dice "todo", "el portal entero" o "de
 
 ## Requisitos previos
 
-- **MCP de bit2beat conectado** (la auth la resuelve el token; no se configura webhook ni servidor local)
-- `nombre_cliente` — nombre corto de la carpeta del cliente (ej: `acme`)
-- `portal_url` — URL base del portal (ej: `https://acme.bitrix24.com`)
+- **MCP de bit2beat conectado** (la auth resuelve el portal por token).
+- `nombre_cliente` — **solo** el nombre de la carpeta LOCAL donde guardar los archivos
+  en tu disco. El server no lo conoce. **No lo pidas**: usá un default (ver Paso 0).
+
+> **No preguntes la URL del portal ni el cliente.** El MCP ya sabe contra qué portal
+> opera; la URL la resuelve el Paso 0. Arrancá el scout directo.
+
+## Paso 0 — Datos del portal (sin preguntar nada)
+
+Llamá `b24_test_connection`. Devuelve el usuario actual **y** los datos del portal
+que conoce el server:
+
+```
+b24_test_connection
+→ { user: {...}, portal: { domain: "miempresa.bitrix24.es", url: "https://miempresa.bitrix24.es" } }
+```
+
+- `portal_url` = `portal.url` (no preguntar).
+- `nombre_cliente`: si el usuario no lo indicó, derivalo del subdominio
+  (ej. `miempresa.bitrix24.es` → `miempresa`). Avisá qué nombre vas a usar y seguí.
+- Si `portal.domain` viene `null` (server viejo), dejá `portal_url` en null y seguí igual:
+  el scout no depende de la URL para leer datos.
 
 ---
 
@@ -250,9 +269,9 @@ Consolidar en `scout_modules.json`.
 
 ```json
 {
-  "nombre_cliente": "{nombre_cliente}",
-  "portal_url": "{portal_url}",
-  "portal_name": "{nombre visible del portal}",
+  "nombre_cliente": "{nombre_cliente (default: subdominio del portal)}",
+  "portal_url": "{portal.url de b24_test_connection (o null)}",
+  "portal_name": "{portal.domain de b24_test_connection}",
   "language": "es",
   "timezone": "America/Buenos_Aires",
   "scout_mode": "básico | completo",
