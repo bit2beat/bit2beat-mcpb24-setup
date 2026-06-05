@@ -10,12 +10,18 @@ import { printHeader } from './ui.js'
 const KNOWN_SKILLS = ['portal-scout', 'bizproc', 'catalog-importer']
 
 function pythonOk(): boolean {
-  try {
-    execSync('python3 -c "import phpserialize"', { stdio: 'ignore' })
-    return true
-  } catch {
-    return false
+  // Windows usa `python` o `py -3`; Linux/Mac suelen tener `python3`.
+  // Probamos todos y alcanza con que uno tenga phpserialize.
+  const candidates = ['python3', 'python', 'py -3']
+  for (const cmd of candidates) {
+    try {
+      execSync(`${cmd} -c "import phpserialize"`, { stdio: 'ignore' })
+      return true
+    } catch {
+      // probar el siguiente
+    }
   }
+  return false
 }
 
 export async function runAutomations(client: SkillClient): Promise<void> {
@@ -85,8 +91,15 @@ export async function runAutomations(client: SkillClient): Promise<void> {
     ? '\nRequieren plan Pro:\n' + notAllowed.map(s => `  🔒 ${s}`).join('\n')
     : ''
 
+  // Sugerencias acordes a lo que realmente se instaló
+  const tips: string[] = []
+  if (installed.includes('portal-scout')) tips.push('  "relevá mi portal de Bitrix24"')
+  if (installed.includes('bizproc')) tips.push('  "detallá las automatizaciones de mi portal"')
+  if (installed.includes('catalog-importer')) tips.push('  "importá este Excel de productos al catálogo"')
+  const tipsBlock = tips.length ? `\n\nProbá en Claude:\n${tips.join('\n')}` : ''
+
   note(
-    `Skills instaladas en:\n  ${skillDir}\n\n${installedLines}${proLines}\n\nProbá en Claude:\n  "detallá las automatizaciones de mi portal"\n  "exportá la automatización de la etapa X"`,
+    `Skills instaladas en:\n  ${skillDir}\n\n${installedLines}${proLines}${tipsBlock}`,
     'Listo',
   )
   outro(green(`¡${installed.length} skill(s) de bit2beat instalada(s)!`))

@@ -1,6 +1,6 @@
 {
   "name": "bit2beat-mcpb24-setup",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "CLI para conectar Bitrix24 con Claude usando el MCP hosteado de bit2beat",
   "type": "module",
   "bin": {
